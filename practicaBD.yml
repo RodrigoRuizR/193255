@@ -1,0 +1,410 @@
+#POSTGRES
+
+# Volumen persistente 
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-postgres-p2-vol1
+  namespace: rodi-namespace
+spec: #Configuración de lo que va a contruir a nivel de disco
+  storageClassName: rodrigo
+  capacity:
+    storage: 10Gi # Capacidad
+  accessModes:
+    - ReadWriteOnce # Lectura y escritura
+  hostPath:
+    path: "/mnt/postdb-p2-vol1" # Lugar donde guardara los datosl
+---
+# PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-postgres-vol1
+  namespace: rodi-namespace
+  volumename: pv-postgres-p2-vol1
+spec:
+  storageClassName: rodrigo
+  accessModes:
+    - ReadWriteOnce
+  resources: #Configuración de lo que va a reclamar
+    requests:
+      storage: 5Gi
+---
+
+# STORAGE CLASS
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rodrigo
+  namespace: rodi-namespace
+provisioner: kubernetes.io/no-provisioner #no-provisioner -> Entorno de de infraestructura local
+reclaimPolicy: Retain #Que realizara con mis datos 
+volumeBindingMode: WaitForFirstConsumer
+
+---
+# ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+data:
+  postgres_password: "rodrigor"
+  postgres_user: "postgres"
+  postgres_db: "rodrigodb"
+---
+
+#DEPLOY
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-practicadb-deployment
+  namespace: rodi-namespace
+  labels:
+    app: postgres-server-practicadb
+spec:
+  selector:
+    matchLabels:
+      app: postgres-server-practicadb
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: postgres-server-practicadb
+    spec:
+      containers:
+      - image: postgres:11  #docker pull image
+        name: postgres-db1-practicadb
+        ports:
+        - containerPort: 5432
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /var/lib/postgresql-practicadb/data
+          name: pv-postgres-p2-vol1
+        env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: postgres_password
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: postgres_user
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: postgres_db
+      volumes:
+      - name: pv-postgres-p2-vol1
+      configMap:
+        name: postgres-p2-vol1
+      persistentVolumeClaim:
+        claimName: pvc-postgres-vol1
+---
+
+# SERVICIO
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-postgres-practicadb
+  namespace: rodi-namespace
+spec:
+  selector:
+    app: postgres-server-practicadb
+  ports:
+    - port: 5501
+      targetPort: 5432
+  type: LoadBalancer
+---
+
+
+#MYSQL
+
+# Volumen persistente 
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-mysql-p2-vol1
+  namespace: rodi-namespace
+spec: #Configuración de lo que va a contruir a nivel de disco
+  storageClassName: rodrigomysql
+  capacity:
+    storage: 10Gi # Capacidad
+  accessModes:
+    - ReadWriteOnce # Lectura y escritura
+  hostPath:
+    path: "/mnt/mysqlbd-p2-vol1" # Lugar donde guardara los datosl
+---
+
+#PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-mysql-vol1
+  namespace: rodi-namespace
+  volumename: pv-mysql-p2-vol1
+spec:
+  storageClassName: rodrigomysql
+  accessModes:
+    - ReadWriteOnce
+  resources: #Configuración de lo que va a reclamar
+    requests:
+      storage: 5Gi
+---
+
+# STORAGE CLASS
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rodrigomysql
+  namespace: rodi-namespace
+provisioner: kubernetes.io/no-provisioner #no-provisioner -> Entorno de de infraestructura local
+reclaimPolicy: Retain #Que realizara con mis datos 
+volumeBindingMode: WaitForFirstConsumer
+---
+
+# ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config
+data:
+  mysql_password: "rodrigor"
+---
+
+
+#Deploy
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-practicadb-deployment
+  namespace: rodi-namespace
+  labels:
+    app: mysql-server-practicadb
+spec:
+  selector:
+    matchLabels:
+      app: mysql-server-practicadb
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mysql-server-practicadb
+    spec:
+      containers:
+      - image: mysql:5.6
+        name: mysql-practicadb
+        env:
+          # Use secret in real usage
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+              configMapKeyRef:
+                name: mysql-config
+                key: mysql_password
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: pv-mysql-p2-vol1
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: pv-mysql-p2-vol1
+      configMap: 
+        name: mysql
+        persistentVolumeClaim:
+          claimName: pvc-mysql-vol1
+---
+
+# SERVICIO
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-mysql-practicadb
+  namespace: rodi-namespace
+spec:
+  selector:
+    app: mysql-server-practicadb
+  ports:
+    - port: 5550
+      targetPort: 3306
+  type: LoadBalancer
+---
+
+
+
+#Mongo
+
+
+# Volumen persistente 
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-mongo-p2-vol1
+  namespace: rodi-namespace
+spec: #Configuración de lo que va a contruir a nivel de disco
+  storageClassName: practica2dbmongo
+  capacity:
+    storage: 10Gi # Capacidad
+  accessModes:
+    - ReadWriteOnce # Lectura y escritura
+  hostPath:
+    path: "/mnt/mongodb-p2-vol1" # Lugar donde guardara los datosl
+---
+
+# PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-mongo-vol1
+  namespace: rodi-namespace
+  volumename: pv-mongo-p2-vol1
+spec:
+  storageClassName: practica2dbmongo
+  accessModes:
+    - ReadWriteOnce
+  resources: #Configuración de lo que va a reclamar
+    requests:
+      storage: 5Gi
+---
+
+# STORAGE CLASS
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: practica2dbmongo
+  namespace: rodi-namespace
+provisioner: kubernetes.io/no-provisioner #no-provisioner -> Entorno de de infraestructura local
+reclaimPolicy: Retain #Que realizara con mis datos 
+volumeBindingMode: WaitForFirstConsumer
+---
+
+# DEPLOY
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-practicadb-deployment
+  namespace: rodi-namespace
+  labels:
+    app: mongo-server
+spec:
+  selector:
+    matchLabels:
+      app: mongo-server-practicadb
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app:  mongo-server-practicadb 
+    spec:
+      containers:
+      - name: mongo
+        image: mongo:4
+        ports:
+        - containerPort: 27017
+        volumeMounts:
+        - mountPath: /data/db  
+          name: pv-mongo-p2-vol1
+      volumes:
+      - name: pv-mongo-p2-vol1
+        persistentVolumeClaim:
+          claimName: pvc-mongo-vol1
+---
+
+# SERVICIO
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-mongo-practicadb
+spec:
+  selector:
+    app: mongo-server-practicadb
+  ports:
+    - port: 5410
+      targetPort: 27017
+  type: LoadBalancer
+---
+
+
+#REDIS
+
+# Volumen persistente 
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-redis-p2-vol1
+  namespace: rodi-namespace
+spec: #Configuración de lo que va a contruir a nivel de disco
+  storageClassName: practica2dbredis
+  capacity:
+    storage: 10Gi # Capacidad
+  accessModes:
+    - ReadWriteOnce # Lectura y escritura
+  hostPath:
+    path: "/mnt/redisdb-p2-vol1" # Lugar donde guardara los datosl
+---
+
+# PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-redis-vol1
+  namespace: rodi-namespace
+  volumename: pv-redis-p2-vol1
+spec:
+  storageClassName: practica2dbredis
+  accessModes:
+    - ReadWriteOnce
+  resources: #Configuración de lo que va a reclamar
+    requests:
+      storage: 5Gi
+---
+
+# STORAGE CLASS
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: practica2dbredis
+  namespace: rodi-namespace
+provisioner: kubernetes.io/no-provisioner #no-provisioner -> Entorno de de infraestructura local
+reclaimPolicy: Retain #Que realizara con mis datos 
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: redis-p2-deployment
+    namespace: rodi-namespace
+    labels:
+      app: redis-server
+spec:
+  replicas: 1 
+  selector:
+    matchLabels: 
+      app: redis-server
+  template: 
+    metadata:
+      labels: 
+        app: redis-server
+    spec:
+      containers:
+        - name: redis
+          image: redis
+          ports:        
+            - containerPort: 6379
+---
+
+# SERVICIO
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-redis-practicadb
+spec:
+  type: LoadBalancer
+  selector:
+    app: redis-server
+  ports:
+  - port: 5303
+    targetPort: 6379
+    protocol: TCP
